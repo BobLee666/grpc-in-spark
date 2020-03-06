@@ -95,6 +95,10 @@
                             <pattern>io.grpc</pattern>
                             <shadedPattern>shaded.io.grpc</shadedPattern>
                         </relocation>
+                        <relocation>
+                            <pattern>io.netty</pattern>
+                            <shadedPattern>shaded.io.netty</shadedPattern>
+                        </relocation>
                     </relocations>-->
                     <artifactSet>
                         <includes>
