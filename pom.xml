@@ -86,20 +86,12 @@
                 <configuration>
                     <shadedArtifactAttached>true</shadedArtifactAttached>
                     <shadedClassifierName>allinone</shadedClassifierName>
-                    <!--<relocations>
+                    <relocations>
                         <relocation>
-                            <pattern>com.google.common</pattern>
-                            <shadedPattern>shaded.com.google.common</shadedPattern>
+                            <pattern>com.google</pattern>
+                            <shadedPattern>shaded.com.google</shadedPattern>
                         </relocation>
-                        <relocation>
-                            <pattern>io.grpc</pattern>
-                            <shadedPattern>shaded.io.grpc</shadedPattern>
-                        </relocation>
-                        <relocation>
-                            <pattern>io.netty</pattern>
-                            <shadedPattern>shaded.io.netty</shadedPattern>
-                        </relocation>
-                    </relocations>-->
+                    </relocations>
                     <artifactSet>
                         <includes>
                             <include>*:*</include>
