@@ -9,58 +9,68 @@ import ljh.example.Helloworld.NotifyRequest;
 import ljh.example.Helloworld.RegRequest;
 import ljh.example.NotifyGrpc;
 import ljh.example.RegisterGrpc;
+import org.apache.spark.SparkEnv;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 
 public class GrpcWorker {
 
-    public static class RegisterClient {
-        private static RegisterClient instance;
-        private final ManagedChannel channel;
-        private final RegisterGrpc.RegisterBlockingStub registerStub;
+    private static GrpcWorker instance;
+    private final ManagedChannel regChannel;
+    private final RegisterGrpc.RegisterBlockingStub registerStub;
+    private static String workerHost;
+    private static int workerPort;
+    private static String executorId;
 
-        private RegisterClient(String host, int port){
-            channel = ManagedChannelBuilder.forAddress(host,port)
-                    .usePlaintext()
-                    .build();
-
-            registerStub = RegisterGrpc.newBlockingStub(channel);
+    private GrpcWorker(String host, int port) {
+        try {
+            workerHost = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
         }
+        workerPort = 50000 + (int) Thread.currentThread().getId() % 10000;
+        executorId = SparkEnv.get().executorId();
+        regChannel = ManagedChannelBuilder.forAddress(host,port)
+                .usePlaintext()
+                .build();
 
-        public static synchronized RegisterClient getInstance(String host, int port) {
-            if (instance == null) {
-                instance = new RegisterClient(host, port);
+        registerStub = RegisterGrpc.newBlockingStub(regChannel);
+
+        startNotifyServer(workerPort);
+
+    }
+
+    public static GrpcWorker getInstance(String host, int port) {
+        if (instance != null) return instance;
+        synchronized (GrpcWorker.class){
+            if (instance == null){
+                instance = new GrpcWorker(host, port);
             }
-            return instance;
         }
-        public void shutdown() throws InterruptedException {
-            channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
-        }
+        return instance;
+    }
 
-        public void regOnMaster(String id, String host, int port){
-            RegRequest.Builder reqBuilder = RegRequest.newBuilder();
-            reqBuilder.setId(id);
-            reqBuilder.setHost(host);
-            reqBuilder.setPort(port);
-            Empty empty = registerStub.regOnMaster(reqBuilder.build());
-        }
+    public void shutdown() throws InterruptedException {
+        regChannel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+    }
+
+    public void regOnMaster(){
+        RegRequest.Builder reqBuilder = RegRequest.newBuilder();
+        reqBuilder.setId(executorId);
+        reqBuilder.setHost(workerHost);
+        reqBuilder.setPort(workerPort);
+        Empty empty = registerStub.regOnMaster(reqBuilder.build());
     }
 
     public static class NotifyServer {
-        private static NotifyServer instance;
         private Server server;
         private int port;
 
         private NotifyServer(int port) {
             this.port = port;
-        }
-
-        public static synchronized NotifyServer getInstance(int port) {
-            if (instance == null) {
-                instance = new NotifyServer(port);
-            }
-            return instance;
         }
 
         public void start() throws IOException {
@@ -111,7 +121,7 @@ public class GrpcWorker {
 
     public static void startNotifyServer(int port){
         new Thread(() -> {
-            final NotifyServer server = NotifyServer.getInstance(port);
+            final NotifyServer server = new NotifyServer(port);
             try {
                 server.start();
                 server.blockUntilShutdown();

@@ -1,10 +1,8 @@
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkEnv;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
 
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -12,14 +10,15 @@ import java.util.List;
 
 
 public class GrpcBuilder {
-    public static void main(String[] args) throws UnknownHostException {
+    public static void main(String[] args) {
         SparkConf conf = new SparkConf().setAppName("Grpc Application");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         int executorNum = sc.getConf().getInt("spark.executor.instances", 1);
+        int executorCores = sc.getConf().getInt("spark.executor.cores", 1);
 
-        String masterIp = InetAddress.getLocalHost().getHostAddress();
+        String masterIp = sc.getConf().get("spark.driver.host");
         System.err.println("spark.executor.instances: " + executorNum);
         System.err.println("masterIp: " + masterIp);
 
@@ -35,17 +34,15 @@ public class GrpcBuilder {
             e.printStackTrace();
         }
 
-        List<Integer> list = Arrays.asList(new Integer[executorNum]);
-        sc.parallelize(list).repartition(executorNum).foreachPartition(
+        int totalCores = executorNum * executorCores * 4;
+        List<Integer> list = Arrays.asList(new Integer[totalCores]);
+        sc.parallelize(list).repartition(totalCores).foreachPartition(
                 (VoidFunction<Iterator<Integer>>) integerIterator -> {
                     String regHost = bcIp.getValue();
                     int regPort = bcPort.getValue();
-                    String id = SparkEnv.get().executorId();
-                    String workerHost = InetAddress.getLocalHost().getHostAddress();
-                    int workerPort = 50000 + (int) Thread.currentThread().getId() % 10000;
-                    GrpcWorker.RegisterClient cl = GrpcWorker.RegisterClient.getInstance(regHost, regPort);
-                    cl.regOnMaster(id, workerHost, workerPort);
-                    GrpcWorker.startNotifyServer(workerPort);
+
+                    GrpcWorker cl = GrpcWorker.getInstance(regHost, regPort);
+                    cl.regOnMaster();
                 }
         );
 

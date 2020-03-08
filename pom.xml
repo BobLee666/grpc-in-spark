@@ -100,7 +100,7 @@
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                     </transformers>
-
+                    <minimizeJar>true</minimizeJar>
                 </configuration>
             </plugin>
 
